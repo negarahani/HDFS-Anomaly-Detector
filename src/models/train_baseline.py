@@ -3,7 +3,15 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix, classification_report
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 import seaborn as sns
 
 import matplotlib.pyplot as plt
@@ -47,14 +55,21 @@ def train_baseline_model(X, y, block_ids, test_size=0.2, random_state=42):
     
     # Predictions
     y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test)[:, 1]
-    
+    y_proba = model.predict_proba(X_test)[:, 1]
+
     # Metrics
-    precision = precision_score(y_test, y_pred)
-    recall = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, zero_division=0)
+    recall = recall_score(y_test, y_pred, zero_division=0)
+    f1 = f1_score(y_test, y_pred, zero_division=0)
     cm = confusion_matrix(y_test, y_pred)
-    
+
+    roc_auc = roc_auc_score(y_test, y_proba) if len(np.unique(y_test)) > 1 else float("nan")
+    pr_auc = (
+        average_precision_score(y_test, y_proba)
+        if len(np.unique(y_test)) > 1
+        else float("nan")
+    )
+
     # Print results
     print("=" * 50)
     print("BASELINE LINEAR REGRESSION MODEL RESULTS")
@@ -62,10 +77,12 @@ def train_baseline_model(X, y, block_ids, test_size=0.2, random_state=42):
     print(f"Precision: {precision:.4f}")
     print(f"Recall:    {recall:.4f}")
     print(f"F1 Score:  {f1:.4f}")
+    print(f"ROC-AUC:   {roc_auc:.4f}")
+    print(f"PR-AUC:    {pr_auc:.4f}")
     print("\nConfusion Matrix:")
     print(cm)
     print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
+    print(classification_report(y_test, y_pred, target_names=["Normal", "Anomaly"]))
     
     # Plot confusion matrix
     plt.figure(figsize=(8, 6))
@@ -79,10 +96,17 @@ def train_baseline_model(X, y, block_ids, test_size=0.2, random_state=42):
     
     return {
         'model': model,
-        'metrics': {'precision': precision, 'recall': recall, 'f1': f1},
+        'metrics': {
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'roc_auc': roc_auc,
+            'pr_auc': pr_auc,
+        },
         'confusion_matrix': cm,
         'y_test': y_test,
-        'y_pred': y_pred
+        'y_pred': y_pred,
+        'y_proba': y_proba,
     }
 
 import os
